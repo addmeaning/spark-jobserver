@@ -196,14 +196,14 @@ lazy val dockerSettings = Seq(
     }
   },
   imageNames in docker := Seq(
-    sbtdocker.ImageName(namespace = Some("velvia"),
+    sbtdocker.ImageName(namespace = Some("addmeaning"),
       repository = "spark-jobserver",
       tag = Some(
         s"${version.value}" +
           s".mesos-${Versions.mesos.split('-')(0)}" +
           s".spark-${Versions.spark}" +
           s".scala-${scalaBinaryVersion.value}" +
-          s".jdk-${Versions.java}")
+          s".jdk-${Versions.java}-connector-provided")
     )
   )
 )

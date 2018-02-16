@@ -1,23 +1,24 @@
 package spark.jobserver
 
-import java.io.{File, IOException}
-import java.nio.charset.Charset
-import java.nio.file.{Files, Paths}
+import java.io.File
+import java.net.URL
+import java.nio.file.Files
 
-import akka.actor.{ActorSystem, Address, AddressFromURIString, Props}
+import akka.actor.{ActorSystem, AddressFromURIString, Props}
 import akka.cluster.Cluster
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
-import spark.jobserver.common.akka.actor.Reaper.WatchMe
+import org.apache.hadoop.fs.FsUrlStreamHandlerFactory
 import org.slf4j.LoggerFactory
 import spark.jobserver.common.akka.actor.ProductionReaper
+import spark.jobserver.common.akka.actor.Reaper.WatchMe
 import spark.jobserver.io.{JobDAO, JobDAOActor}
-import scala.collection.JavaConverters._
+
 import scala.util.Try
 
 /**
- * The JobManager is the main entry point for the forked JVM process running an individual
- * SparkContext.  It is passed $clusterAddr $actorName $systemConfigFile
- */
+  * The JobManager is the main entry point for the forked JVM process running an individual
+  * SparkContext.  It is passed $clusterAddr $actorName $systemConfigFile
+  */
 object JobManager {
   val logger = LoggerFactory.getLogger(getClass)
 
@@ -49,27 +50,21 @@ object JobManager {
       val sqlDaoDir = Files.createTempDirectory("sqldao")
       val sqlDaoDirConfig = ConfigValueFactory.fromAnyRef(sqlDaoDir.toAbsolutePath.toString)
       systemConfig.withoutPath("akka.remote.netty.tcp.hostname")
-                  .withValue("spark.jobserver.sqldao.rootdir", sqlDaoDirConfig)
+        .withValue("spark.jobserver.sqldao.rootdir", sqlDaoDirConfig).resolve()
     } else {
-      systemConfig
+      systemConfig.resolve()
     }
 
-    val system = makeSystem(config.resolve())
+    logger.info("Starting JobManager named " + managerName + " with config {}",
+      config.getConfig("spark").root.render())
+
+    val system = makeSystem(config)
     val clazz = Class.forName(config.getString("spark.jobserver.jobdao"))
     val ctor = clazz.getDeclaredConstructor(Class.forName("com.typesafe.config.Config"))
     val jobDAO = ctor.newInstance(config).asInstanceOf[JobDAO]
     val daoActor = system.actorOf(Props(classOf[JobDAOActor], jobDAO), "dao-manager-jobmanager")
 
-    logger.info("Starting JobManager named " + managerName + " with config {}",
-      config.getConfig("spark").root.render())
-
-    val masterAddress = if (systemConfig.getBoolean("spark.jobserver.kill-context-on-supervisor-down")) {
-      clusterAddress.toString + "/user/context-supervisor"
-    } else {
-      ""
-    }
-
-    val jobManager = system.actorOf(JobManagerActor.props(daoActor, masterAddress), managerName)
+    val jobManager = system.actorOf(JobManagerActor.props(daoActor), managerName)
 
     //Join akka cluster
     logger.info("Joining cluster at address {}", clusterAddress)
@@ -83,6 +78,8 @@ object JobManager {
 
   def main(args: Array[String]) {
     import scala.collection.JavaConverters._
+
+    URL.setURLStreamHandlerFactory(new FsUrlStreamHandlerFactory())
 
     def makeManagerSystem(name: String)(config: Config): ActorSystem = {
       val configWithRole = config.withValue("akka.cluster.roles",

@@ -61,7 +61,7 @@ object Dependencies {
 
 
   lazy val cassandraDeps = Seq(
-    "com.datastax.spark" %% "spark-cassandra-connector" % cassandraConnector
+    "com.datastax.spark" %% "spark-cassandra-connector" % cassandraConnector % Provided
   )
 
   lazy val logbackDeps = Seq(
