@@ -1,7 +1,22 @@
 package spark.jobserver
 
 import java.io.File
+import java.net.URL
 import java.nio.file.Files
+import java.util.concurrent.TimeUnit
+
+import akka.actor.{ActorSystem, AddressFromURIString, Props}
+import akka.cluster.Cluster
+import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
+import org.apache.hadoop.fs.FsUrlStreamHandlerFactory
+import org.slf4j.LoggerFactory
+import spark.jobserver.common.akka.actor.ProductionReaper
+import spark.jobserver.common.akka.actor.Reaper.WatchMe
+import spark.jobserver.io.{JobDAO, JobDAOActor}
+
+import scala.collection.JavaConverters._
+import scala.concurrent.duration.FiniteDuration
+import scala.util.Try
 
 /**
   * The JobManager is the main entry point for the forked JVM process running an individual
@@ -59,7 +74,6 @@ object JobManager {
       case true => clusterAddress.toString + "/user/context-supervisor"
       case false => ""
     }
-
     val contextId = managerName.replace(AkkaClusterSupervisorActor.MANAGER_ACTOR_PREFIX, "")
     val jobManager = system.actorOf(JobManagerActor.props(daoActor, masterAddress, contextId,
         getManagerInitializationTimeout(systemConfig)), managerName)
