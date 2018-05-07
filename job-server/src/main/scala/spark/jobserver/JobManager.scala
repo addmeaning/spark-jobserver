@@ -1,19 +1,7 @@
 package spark.jobserver
 
 import java.io.File
-import java.net.URL
 import java.nio.file.Files
-
-import akka.actor.{ActorSystem, AddressFromURIString, Props}
-import akka.cluster.Cluster
-import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
-import org.apache.hadoop.fs.FsUrlStreamHandlerFactory
-import org.slf4j.LoggerFactory
-import spark.jobserver.common.akka.actor.ProductionReaper
-import spark.jobserver.common.akka.actor.Reaper.WatchMe
-import spark.jobserver.io.{JobDAO, JobDAOActor}
-
-import scala.util.Try
 
 /**
   * The JobManager is the main entry point for the forked JVM process running an individual
@@ -64,7 +52,17 @@ object JobManager {
     val jobDAO = ctor.newInstance(config).asInstanceOf[JobDAO]
     val daoActor = system.actorOf(Props(classOf[JobDAOActor], jobDAO), "dao-manager-jobmanager")
 
-    val jobManager = system.actorOf(JobManagerActor.props(daoActor), managerName)
+    logger.info("Starting JobManager named " + managerName + " with config {}",
+      config.getConfig("spark").root.render())
+
+    val masterAddress = systemConfig.getBoolean("spark.jobserver.kill-context-on-supervisor-down") match {
+      case true => clusterAddress.toString + "/user/context-supervisor"
+      case false => ""
+    }
+
+    val contextId = managerName.replace(AkkaClusterSupervisorActor.MANAGER_ACTOR_PREFIX, "")
+    val jobManager = system.actorOf(JobManagerActor.props(daoActor, masterAddress, contextId,
+        getManagerInitializationTimeout(systemConfig)), managerName)
 
     //Join akka cluster
     logger.info("Joining cluster at address {}", clusterAddress)
@@ -77,7 +75,6 @@ object JobManager {
   }
 
   def main(args: Array[String]) {
-    import scala.collection.JavaConverters._
 
     URL.setURLStreamHandlerFactory(new FsUrlStreamHandlerFactory())
 
@@ -104,6 +101,11 @@ object JobManager {
     }
 
     start(args, makeManagerSystem("JobServer"), waitForTermination)
+  }
+
+   private def getManagerInitializationTimeout(config: Config): FiniteDuration = {
+    FiniteDuration(config.getDuration("spark.jobserver.manager-initialization-timeout",
+        TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
   }
 }
 

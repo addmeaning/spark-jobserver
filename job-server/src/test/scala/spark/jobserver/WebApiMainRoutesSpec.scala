@@ -18,6 +18,7 @@ class WebApiMainRoutesSpec extends WebApiSpec {
   val getJobStatusInfoMap = {
     Map(
       "jobId" -> "foo-1",
+      "contextId" -> "cid",
       "startTime" -> "2013-05-29T00:00:00.000Z",
       "classPath" -> "com.abc.meme",
       "context"  -> "context",
@@ -118,12 +119,14 @@ class WebApiMainRoutesSpec extends WebApiSpec {
         status should be (OK)
         responseAs[Seq[Map[String, String]]] should be (Seq(
           Map("jobId" -> "foo-1",
+              "contextId" -> "cid",
               "startTime" -> "2013-05-29T00:00:00.000Z",
               "classPath" -> "com.abc.meme",
               "context"  -> "context",
               "duration" -> "Job not done yet",
               StatusKey -> JobStatus.Running),
           Map("jobId" -> "foo-1",
+              "contextId" -> "cid",
               "startTime" -> "2013-05-29T00:00:00.000Z",
               "classPath" -> "com.abc.meme",
               "context"  -> "context",
@@ -137,6 +140,7 @@ class WebApiMainRoutesSpec extends WebApiSpec {
         status should be (OK)
         responseAs[Seq[Map[String, String]]] should be (Seq(
           Map("jobId" -> "foo-1",
+            "contextId" -> "cid",
             "startTime" -> "2013-05-29T00:00:00.000Z",
             "classPath" -> "com.abc.meme",
             "context"  -> "context",
@@ -170,6 +174,7 @@ class WebApiMainRoutesSpec extends WebApiSpec {
         status should be (OK)
         responseAs[Seq[Map[String, String]]] should be (Seq(
           Map("jobId" -> "foo-1",
+            "contextId" -> "cid",
             "startTime" -> "2013-05-29T00:00:00.000Z",
             "classPath" -> "com.abc.meme",
             "context"  -> "context",
@@ -221,6 +226,7 @@ class WebApiMainRoutesSpec extends WebApiSpec {
         status should be (Accepted)
         responseAs[Map[String, String]] should be (Map(
           "jobId" -> "foo",
+          "contextId" -> "cid",
           "startTime" -> "2013-05-29T00:00:00.000Z",
           "classPath" -> "com.abc.meme",
           "context"  -> "context",
@@ -282,6 +288,7 @@ class WebApiMainRoutesSpec extends WebApiSpec {
         status should be (Accepted)
         responseAs[Map[String, String]] should be (Map(
           "jobId" -> "foo",
+          "contextId" -> "cid",
           "startTime" -> "2013-05-29T00:00:00.000Z",
           "classPath" -> "com.abc.meme",
           "context"  -> "context",
@@ -296,6 +303,7 @@ class WebApiMainRoutesSpec extends WebApiSpec {
         status should be (OK)
         responseAs[Map[String, String]] should be (Map(
           "jobId" -> "foo-1",
+          "contextId" -> "cid",
           "startTime" -> "2013-05-29T00:00:00.000Z",
           "classPath" -> "com.abc.meme",
           "context"  -> "context",
@@ -310,6 +318,7 @@ class WebApiMainRoutesSpec extends WebApiSpec {
         status should be (OK)
         responseAs[Map[String, String]] should be (Map(
           "jobId" -> "foo-1",
+          "contextId" -> "cid",
           "startTime" -> "2013-05-29T00:00:00.000Z",
           "classPath" -> "com.abc.meme",
           "context"  -> "context",
@@ -502,16 +511,19 @@ class WebApiMainRoutesSpec extends WebApiSpec {
       }
     }
 
-    it("should return the sparkWebUi url if we get a context/id") {
+    it("should return context information if context/id is called (with context UI url)") {
       Get("/contexts/context1") ~> sealRoute(routes) ~> check {
         status should be (OK)
-        responseAs[Map[String, String]] should be (Map("context" -> "context1", "url" -> "http://spark:4040"))
+        responseAs[Map[String, String]] should be (Map(
+            "context" -> "context1",
+            "applicationId" -> "local-1337",
+            "url" -> "http://spark:4040"))
       }
     }
-    it("should return the context name if even no URL can be found") {
+    it("should return context information if context/id is called (without context UI url)") {
       Get("/contexts/context2") ~> sealRoute(routes) ~> check {
         status should be (OK)
-        responseAs[Map[String, String]] should be (Map("context" -> "context2"))
+        responseAs[Map[String, String]] should be (Map("context" -> "context2", "applicationId" -> "local-1337"))
       }
     }
   }
